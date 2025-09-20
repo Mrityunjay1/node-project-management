@@ -144,6 +144,29 @@ const resendEmailVerificationToken = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, user, "Email verification token resent successfully"))
 })
 
+const refreshAccessToken = asyncHandler(async (req, res) => {
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken
+    if (!refreshToken) {
+        throw new ApiError(401, "Refresh token is required")
+    }
+    const decodedToken = await verifyToken(refreshToken, process.env.REFRESH_TOKEN_SECRET)
+    if (!decodedToken) {
+        throw new ApiError(401, "Invalid refresh token")
+    }
+    const user = await User.findById(decodedToken.id)
+    if (!user) {
+        throw new ApiError(404, "User not found")
+    }
+    const { accessToken, refreshToken: newRefreshToken } = await generateAccessAndRefreshTokens(user._id)
+    const options = {
+        httpOnly: true,
+        secure: true
+    }
+    return res.status(200).cookie("accessToken", accessToken, options).cookie("refreshToken", newRefreshToken, options).json(new ApiResponse(200, { accessToken, refreshToken: newRefreshToken }, "Access token refreshed successfully"))
+})
+
+
+
 
 
 export {
@@ -151,5 +174,7 @@ export {
     loginUser,
     logoutUser,
     getCurrentUser,
-    verifyEmail
+    verifyEmail,
+    resendEmailVerificationToken,
+    refreshAccessToken
 }
